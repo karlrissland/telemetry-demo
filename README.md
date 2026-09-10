@@ -33,7 +33,7 @@ flowchart LR
 | Infrastructure (Bicep) | ✅ Deployed and verified in Sweden Central |
 | Deployment scripts + azd hooks | ✅ Scaffolded (skip cleanly until app source exists) |
 | Function app code | ⬜ Not started |
-| Logic App workflows | ⬜ Not started |
+| Logic App workflows | 🟡 Empty scaffold committed at `src/logicapps/td-lg/reqres` |
 | Container App code | ⬜ Not started |
 | APIM APIs + policies | ⬜ Not started |
 | Workbooks + dashboards | ⬜ Not started |
@@ -148,6 +148,11 @@ infra/
   main.parameters.json    azd-wired parameters
   abbreviations.json      Resource naming prefixes
   modules/                One module per service
+src/
+  logicapps/
+    logicapps.code-workspace
+    td-lg/                Logic App Standard project (host.json)
+      reqres/             One folder per workflow
 scripts/
   common.ps1              azd env loading + helpers
   deploy-all.ps1          postprovision hook — deploys all apps

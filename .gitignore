@@ -39,9 +39,9 @@ venv/
 node_modules/
 
 # Logic App local artifacts
-src/logicapp/.debug/
-src/logicapp/workflow-designtime/
-src/logicapp/local.settings.json
+src/logicapps/**/.debug/
+src/logicapps/**/workflow-designtime/
+src/logicapps/**/local.settings.json
 
 # APIM extractor output that may contain secrets
 apim/**/*.secret.*

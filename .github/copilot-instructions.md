@@ -85,7 +85,9 @@ Create directories as work requires them; keep to this shape.
 ├── src/
 │   ├── function/               # .NET 8 isolated worker
 │   ├── containerapp/           # Python service + Dockerfile
-│   └── logicapp/               # workflow.json + host.json + connections.json
+│   └── logicapps/              # VS Code workspace for Logic App projects
+│       └── td-lg/              # the Logic App Standard project (host.json lives here)
+│           └── reqres/         # one folder per workflow, each with workflow.json
 ├── apim/                       # extractor/publisher artifacts + policies
 ├── scripts/                    # PowerShell used by azd hooks
 ├── tests/
@@ -101,7 +103,7 @@ Create directories as work requires them; keep to this shape.
 | IaC | Bicep (latest stable API versions; avoid preview unless required) |
 | Function | C#, .NET 8, **isolated worker** model |
 | Container App | Python 3.12, `azure-servicebus` + `azure-identity` |
-| Logic App | Standard (single-tenant), workflows in `src/logicapp` |
+| Logic App | Standard (single-tenant), project at `src/logicapps/td-lg`, one folder per workflow |
 | Telemetry SDK (.NET) | Azure Monitor OpenTelemetry Distro (`Azure.Monitor.OpenTelemetry.AspNetCore` / `.Exporter`) |
 | Telemetry SDK (Python) | `azure-monitor-opentelemetry` |
 | Auth in code | `DefaultAzureCredential` — always. Never a connection string. |

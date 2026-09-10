@@ -56,11 +56,13 @@ else {
 }
 
 # --- 2. Logic App Standard ----------------------------------------------------
+# The Logic App project lives at src/logicapps/td-lg (the folder that contains
+# host.json), with the parent src/logicapps holding the VS Code workspace.
 if ($SkipLogicApp) {
     Write-Step "Logic App"; Write-Skipped "-SkipLogicApp was specified."
 }
-elseif (-not (Test-Path (Join-Path $repoRoot 'src/logicapp'))) {
-    Write-Step "Logic App"; Write-Skipped "src/logicapp does not exist yet."
+elseif (-not (Test-Path (Join-Path $repoRoot 'src/logicapps/td-lg/host.json'))) {
+    Write-Step "Logic App"; Write-Skipped "src/logicapps/td-lg/host.json not found."
 }
 else {
     & "$PSScriptRoot/deploy-logicapp.ps1"
