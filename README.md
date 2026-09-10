@@ -94,6 +94,45 @@ identity. That storage account must keep `allowSharedKeyAccess: true`, and the m
 granted **Storage Account Contributor** so the runtime can `listKeys` for the content share. All
 *application* traffic from the Logic App (Service Bus, telemetry) still uses managed identity.
 
+## Telemetry sampling is disabled on purpose
+
+Every service in this demo sets Application Insights sampling to **off**. The Logic App declares it
+explicitly in `src/logicapps/td-lg/host.json`:
+
+```jsonc
+"samplingSettings": { "isEnabled": false }
+```
+
+**Why.** The entire point of the demo is to take one `OrderId`, find it, and follow it across five
+hops. Adaptive sampling is *per-service* and it makes an independent keep-or-drop decision at each
+one. Even at a mild 80% keep rate, a five-hop trace survives intact only about a third of the time.
+The failure mode is worse than losing data: the trace still renders, just with a hop missing, so the
+gap looks like the message died at a service it actually passed through cleanly. That is the exact
+wrong lesson for a demo about pinpointing failure.
+
+The default Functions/Logic App template ships `isEnabled: true` with `excludedTypes: "Request"`.
+That protects requests only — the dependency and trace records that carry the `OrderId` and prove
+*which* hop broke are precisely what gets thrown away.
+
+**What it costs you.** Sampling exists to control ingestion cost and throughput, so switching it off
+is a deliberate trade:
+
+| | Impact |
+|---|---|
+| Cost | Every telemetry item is billed. Fine at demo volume (pennies), material under sustained load |
+| Throughput | High-volume apps can hit the App Insights ingestion sampling ceiling, which starts dropping data server-side regardless of this setting |
+| Data cap | Consider a daily cap on the Log Analytics workspace so a runaway loop can't produce a surprise bill |
+
+**If you reuse this repo as a production pattern, turn sampling back on.** Do it by raising
+`excludedTypes` to keep what correlation depends on rather than by accepting the default:
+
+```jsonc
+"samplingSettings": { "isEnabled": true, "excludedTypes": "Request;Exception;Dependency" }
+```
+
+Keeping `Exception` and `Dependency` preserves failure diagnosis and cross-service links while still
+shedding the high-volume `Trace` records.
+
 ## MCAPS subscriptions
 
 MCAPS-governed tenants assign two **Modify** policies that silently rewrite storage accounts

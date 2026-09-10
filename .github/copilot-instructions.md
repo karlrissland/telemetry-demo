@@ -173,6 +173,16 @@ Every message carries these, end to end:
 - Local runs go to the **same** App Insights resource (or a dedicated local one) — never disable
   telemetry locally, because the "debug it locally, see it in App Insights" story is part of the demo.
 
+### Sampling is off everywhere
+
+Every service sets Application Insights sampling to `isEnabled: false` (`host.json` for the Function
+and Logic App, `TelemetryConfiguration` / OpenTelemetry sampler for the Container App). Sampling
+decides keep-or-drop *independently per service*, so a sampled five-hop trace routinely renders with
+a hop missing — indistinguishable from the message dying at that hop. That breaks the demo's core
+claim. Do not accept the template default of `isEnabled: true, excludedTypes: "Request"`; it
+protects requests while discarding the dependency and trace records that carry the `OrderId`.
+The cost/throughput trade-off and the production-safe setting are documented in the README.
+
 ### Failure simulation
 
 The sad path is driven by data, not by a redeploy. A message property (e.g.
