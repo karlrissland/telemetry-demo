@@ -1,0 +1,17 @@
+{
+  "apiManagementService": "apim-",
+  "appManagedEnvironments": "cae-",
+  "appContainerApps": "ca-",
+  "containerRegistryRegistries": "cr",
+  "insightsComponents": "appi-",
+  "managedIdentityUserAssignedIdentities": "id-",
+  "operationalInsightsWorkspaces": "log-",
+  "portalDashboards": "dash-",
+  "resourcesResourceGroups": "rg-",
+  "serviceBusNamespaces": "sb-",
+  "storageStorageAccounts": "st",
+  "webServerFarms": "plan-",
+  "webSitesFunctions": "func-",
+  "webSitesLogicApp": "logic-",
+  "workbooks": "wb-"
+}

@@ -1,11 +1,35 @@
-//NOTE: this template is written to support Logic Apps Deployment with Managed Identity.
-//  this is not a production ready template.  Not leveraging Azure File Shares will limit this
-//  resources ability to scale.
+// =============================================================================
+// Logic App Standard — receives the HTTP request from APIM and publishes the
+// message to Service Bus.
+//
+// Refactored from the original standalone template to take the SHARED
+// user-assigned managed identity and the SHARED Application Insights component
+// as parameters, instead of creating its own. That keeps every hop reporting to
+// one telemetry component under one RBAC principal.
+//
+// NOTE: this is a demo template. It intentionally does not use an Azure Files
+// content share, which limits scale but avoids a storage connection string.
+//
+// No workflows are deployed here. The host is provisioned empty and workflow
+// definitions are pushed later by a PowerShell azd hook.
+// =============================================================================
 
-@description('The name of the function app that you wish to create.')
-param appName string = 'logic-${uniqueString(resourceGroup().id)}'
+@description('Name of the Logic App Standard site.')
+param logicAppName string
 
-@description('Storage Account type')
+@description('Name of the WorkflowStandard hosting plan.')
+param hostingPlanName string
+
+@description('Name of the storage account backing the Logic App runtime.')
+param storageAccountName string
+
+@description('Azure region for all resources in this module.')
+param location string
+
+@description('Tags applied to all resources in this module.')
+param tags object = {}
+
+@description('Storage account SKU.')
 @allowed([
   'Standard_LRS'
   'Standard_GRS'
@@ -13,33 +37,49 @@ param appName string = 'logic-${uniqueString(resourceGroup().id)}'
 ])
 param storageAccountType string = 'Standard_LRS'
 
-@description('Location for all resources.')
-param location string = resourceGroup().location
+@description('Resource id of the shared user-assigned managed identity.')
+param userAssignedIdentityId string
 
-param applicationInsightsName string
-param userAssignedIdentityName string
+@description('Principal id of the shared user-assigned managed identity.')
+param userAssignedIdentityPrincipalId string
 
-var logicAppName = appName
-var hostingPlanName = appName
-var storageAccountName = '${uniqueString(resourceGroup().id)}logicapp'
-var managementbaseuri = environment().resourceManager
-// ADDED: Cloud-agnostic storage endpoint variables (Option A)
+@description('Client id of the shared user-assigned managed identity.')
+param userAssignedIdentityClientId string
+
+@description('Application Insights connection string.')
+param applicationInsightsConnectionString string
+
+@description('Fully qualified Service Bus namespace, e.g. sb-demo.servicebus.windows.net.')
+param serviceBusFullyQualifiedNamespace string
+
+@description('Name of the queue the workflow publishes to.')
+param ordersQueueName string
+
+@description('Log Analytics workspace resource id for diagnostic settings.')
+param logAnalyticsWorkspaceId string
+
+@description('WorkflowStandard plan SKU.')
+@allowed([
+  'WS1'
+  'WS2'
+  'WS3'
+])
+param planSku string = 'WS1'
+
+@description('MCAPS policy exemption tags applied to the Logic App storage account. Logic App Standard backs its runtime with Azure Files, which does NOT support managed identity and therefore requires allowSharedKeyAccess=true. The MCAPS Modify policies StorageAccount_DisableLocalAuth_Modify and StorageAccount_PublicNetwork_Modify would rewrite that to false and disable public network access after deployment, breaking the workflow host. Both honour a SecurityControl=Ignore tag on the resource. Pass {} outside an MCAPS-governed tenant.')
+param policyExemptionTags object = {
+  SecurityControl: 'Ignore'
+}
+
+var managementBaseUri = environment().resourceManager
 var blobEndpoint = 'https://${storageAccountName}.blob.${environment().suffixes.storage}'
 var queueEndpoint = 'https://${storageAccountName}.queue.${environment().suffixes.storage}'
 var tableEndpoint = 'https://${storageAccountName}.table.${environment().suffixes.storage}'
-// ALTERNATIVE (Option B - comment out Option A above and use these directly in appSettings):
-// var blobEndpoint = storageAccount.properties.primaryEndpoints.blob
-// var queueEndpoint = storageAccount.properties.primaryEndpoints.queue
-// var tableEndpoint = storageAccount.properties.primaryEndpoints.table
 
-resource applicationInsights 'Microsoft.Insights/components@2020-02-02' existing = {
-  name: applicationInsightsName
-}
-
-resource storageAccount 'Microsoft.Storage/storageAccounts@2025-01-01' = {
+resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   name: storageAccountName
   location: location
-  tags: {}
+  tags: union(tags, policyExemptionTags)
   sku: {
     name: storageAccountType
   }
@@ -49,50 +89,60 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2025-01-01' = {
     minimumTlsVersion: 'TLS1_2'
     defaultToOAuthAuthentication: true
     allowBlobPublicAccess: false
+    // Logic App Standard backs its runtime with Azure Files, and Azure Files does
+    // not support managed identity. Shared key access must stay enabled on THIS
+    // account or the workflow host will not start. This is the single documented
+    // exception to the no-keys rule and it is a platform limitation.
+    //
+    // In MCAPS the StorageAccount_DisableLocalAuth_Modify policy would flip this
+    // back to false after deployment; the SecurityControl=Ignore tag above is what
+    // prevents that.
     allowSharedKeyAccess: true
     publicNetworkAccess: 'Enabled'
   }
-  dependsOn: []
 }
 
-resource userAssignedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2018-11-30' = {
-  name: userAssignedIdentityName
-  location: location
-}
-
-resource workflowPlan 'Microsoft.Web/serverfarms@2024-11-01' = {
+resource workflowPlan 'Microsoft.Web/serverfarms@2024-04-01' = {
   name: hostingPlanName
   location: location
+  tags: tags
   kind: 'elastic'
-  tags: {}
-  properties: {
-    perSiteScaling: false
-    elasticScaleEnabled: true
-    maximumElasticWorkerCount: 20
-    isSpot: false
-    reserved: false
-    isXenon: false
-    hyperV: false
-    targetWorkerCount: 0
-    targetWorkerSizeId: 0
-    zoneRedundant: false
-  }
   sku: {
-    name: 'WS1'
+    name: planSku
     tier: 'WorkflowStandard'
-    size: 'WS1'
+    size: planSku
     family: 'WS'
     capacity: 1
   }
-  dependsOn: []
+  properties: {
+    elasticScaleEnabled: true
+    maximumElasticWorkerCount: 20
+    targetWorkerCount: 0
+    targetWorkerSizeId: 0
+    zoneRedundant: false
+    reserved: false
+  }
 }
 
-resource logicApp 'Microsoft.Web/sites@2022-03-01' = {
+resource logicApp 'Microsoft.Web/sites@2024-04-01' = {
   name: logicAppName
-  kind: 'functionapp,workflowapp'
   location: location
+  tags: union(tags, { 'azd-service-name': 'logicapp' })
+  kind: 'functionapp,workflowapp'
+  identity: {
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${userAssignedIdentityId}': {}
+    }
+  }
   properties: {
+    serverFarmId: workflowPlan.id
+    clientAffinityEnabled: false
+    httpsOnly: true
+    publicNetworkAccess: 'Enabled'
     siteConfig: {
+      minTlsVersion: '1.2'
+      ftpsState: 'Disabled'
       appSettings: [
         {
           name: 'FUNCTIONS_EXTENSION_VERSION'
@@ -106,26 +156,28 @@ resource logicApp 'Microsoft.Web/sites@2022-03-01' = {
           name: 'WEBSITE_NODE_DEFAULT_VERSION'
           value: '~20'
         }
+        // --- Host storage, via managed identity ---
         {
           name: 'AzureWebJobsStorage__credential'
           value: 'managedidentity'
         }
         {
           name: 'AzureWebJobsStorage__blobServiceUri'
-          value: blobEndpoint 
+          value: blobEndpoint
         }
         {
           name: 'AzureWebJobsStorage__queueServiceUri'
-          value: queueEndpoint 
+          value: queueEndpoint
         }
         {
           name: 'AzureWebJobsStorage__tableServiceUri'
-          value: tableEndpoint 
+          value: tableEndpoint
         }
         {
           name: 'AzureWebJobsStorage__managedIdentityResourceId'
-          value: userAssignedIdentity.id
+          value: userAssignedIdentityId
         }
+        // --- Workflow runtime ---
         {
           name: 'AzureFunctionsJobHost__extensionBundle__id'
           value: 'Microsoft.Azure.Functions.ExtensionBundle.Workflows'
@@ -143,37 +195,35 @@ resource logicApp 'Microsoft.Web/sites@2022-03-01' = {
           value: '1'
         }
         {
-          name: 'LOGIC_APPS_POWERSHELL_VERSION'
-          value: '7.4'
-        }
-        {
-          name: 'APPINSIGHTS_INSTRUMENTATIONKEY'
-          value: applicationInsights.properties.InstrumentationKey
-        }
-        {
           name: 'WORKFLOWS_MANAGEMENT_BASE_URI'
-          value: managementbaseuri
+          value: managementBaseUri
+        }
+        // --- Telemetry ---
+        {
+          name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
+          value: applicationInsightsConnectionString
+        }
+        // --- Service Bus built-in ("in-app") connector, via managed identity.
+        // The built-in connector is required here; the managed API connector
+        // variant persists an access key in an API connection resource.
+        {
+          name: 'serviceBus_fullyQualifiedNamespace'
+          value: serviceBusFullyQualifiedNamespace
+        }
+        {
+          name: 'ORDERS_QUEUE_NAME'
+          value: ordersQueueName
+        }
+        {
+          name: 'AZURE_CLIENT_ID'
+          value: userAssignedIdentityClientId
         }
       ]
     }
-    clientAffinityEnabled: false
-    virtualNetworkSubnetId: null
-    publicNetworkAccess: 'Enabled'
-    httpsOnly: true
-    serverFarmId: resourceId('Microsoft.Web/serverfarms', hostingPlanName)
   }
-  identity: {
-    type: 'SystemAssigned, UserAssigned'
-    userAssignedIdentities: {
-      '${userAssignedIdentity.id}': {}
-    }
-  }
-  dependsOn: [
-    workflowPlan
-  ]
 }
 
-resource name_scm 'Microsoft.Web/sites/basicPublishingCredentialsPolicies@2022-09-01' = {
+resource scmPolicy 'Microsoft.Web/sites/basicPublishingCredentialsPolicies@2024-04-01' = {
   parent: logicApp
   name: 'scm'
   properties: {
@@ -181,7 +231,7 @@ resource name_scm 'Microsoft.Web/sites/basicPublishingCredentialsPolicies@2022-0
   }
 }
 
-resource name_ftp 'Microsoft.Web/sites/basicPublishingCredentialsPolicies@2022-09-01' = {
+resource ftpPolicy 'Microsoft.Web/sites/basicPublishingCredentialsPolicies@2024-04-01' = {
   parent: logicApp
   name: 'ftp'
   properties: {
@@ -189,59 +239,89 @@ resource name_ftp 'Microsoft.Web/sites/basicPublishingCredentialsPolicies@2022-0
   }
 }
 
-//Note
-// - 17d1049b-9a84-46fb-8f53-869881c3d3ab = Storage File Data SMB Share Elevated Contributor
-// - b7e6dc6d-f1e8-4753-8033-0f276bb0955b = Storage Blob Data Owner
-// - 974c5e8b-45b9-4653-ba55-5f855dd0fb88 = Storage Queue Data Contributor
-// - 0a9a7e1f-b9d0-4cc4-a60d-0319b160aaa3 = Storage Table Data Contributor 
-//Note
-// - 17d1049b-9a84-46fb-8f53-869881c3d3ab = Storage File Data SMB Share Elevated Contributor
-// - b7e6dc6d-f1e8-4753-8033-0f276bb0955b = Storage Blob Data Owner
-// - 974c5e8b-45b9-4653-ba55-5f855dd0fb88 = Storage Queue Data Contributor
+// Storage data-plane roles for the Logic App runtime. These are scoped to this
+// module's own storage account, so they live here rather than in rbac.bicep.
+var roles = {
+  // Storage Account Contributor. Grants listKeys, which is how the Logic App
+  // Standard runtime obtains the Azure Files key for its content share. Azure
+  // Files does not support managed identity, so this role — not a data-plane
+  // file role — is what makes the workflow host start.
+  storageAccountContributor: '17d1049b-9a84-46fb-8f53-869881c3d3ab'
+  // Storage Blob Data Owner
+  blobDataOwner: 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b'
+  // Storage Queue Data Contributor
+  queueDataContributor: '974c5e8b-45b9-4653-ba55-5f855dd0fb88'
+  // Storage Table Data Contributor
+  tableDataContributor: '0a9a7e1f-b9d0-4cc4-a60d-0319b160aaa3'
+}
 
-resource roleDefinition_Storage_File_Data_SMB_Share_Elevated_Contributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+resource roleStorageAccountContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   scope: storageAccount
-  name: guid(subscription().id, resourceGroup().id, logicAppName, '/providers/Microsoft.Authorization/roleDefinitions/17d1049b-9a84-46fb-8f53-869881c3d3ab')
+  name: guid(storageAccount.id, userAssignedIdentityPrincipalId, roles.storageAccountContributor)
   properties: {
-    roleDefinitionId: '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/17d1049b-9a84-46fb-8f53-869881c3d3ab'
-    principalId: userAssignedIdentity.properties.principalId
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roles.storageAccountContributor)
+    principalId: userAssignedIdentityPrincipalId
     principalType: 'ServicePrincipal'
   }
 }
 
-resource roleDefinition_Storage_Blob_Data_Owner 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+resource roleBlobOwner 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   scope: storageAccount
-  name: guid(subscription().id, resourceGroup().id, logicAppName, '/providers/Microsoft.Authorization/roleDefinitions/b7e6dc6d-f1e8-4753-8033-0f276bb0955b')
+  name: guid(storageAccount.id, userAssignedIdentityPrincipalId, roles.blobDataOwner)
   properties: {
-    roleDefinitionId: '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/b7e6dc6d-f1e8-4753-8033-0f276bb0955b'
-    principalId: userAssignedIdentity.properties.principalId
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roles.blobDataOwner)
+    principalId: userAssignedIdentityPrincipalId
     principalType: 'ServicePrincipal'
   }
 }
 
-resource roleDefinition_Storage_Queue_Data_Contributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+resource roleQueueContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   scope: storageAccount
-  name: guid(subscription().id, resourceGroup().id, logicAppName, '/providers/Microsoft.Authorization/roleDefinitions/974c5e8b-45b9-4653-ba55-5f855dd0fb88')
+  name: guid(storageAccount.id, userAssignedIdentityPrincipalId, roles.queueDataContributor)
   properties: {
-    roleDefinitionId: '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/974c5e8b-45b9-4653-ba55-5f855dd0fb88'
-    principalId: userAssignedIdentity.properties.principalId
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roles.queueDataContributor)
+    principalId: userAssignedIdentityPrincipalId
     principalType: 'ServicePrincipal'
   }
 }
 
-resource roleDefinition_Storage_Table_Data_Contributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+resource roleTableContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   scope: storageAccount
-  name: guid(subscription().id, resourceGroup().id, logicAppName, '/providers/Microsoft.Authorization/roleDefinitions/0a9a7e1f-b9d0-4cc4-a60d-0319b160aaa3')
+  name: guid(storageAccount.id, userAssignedIdentityPrincipalId, roles.tableDataContributor)
   properties: {
-    roleDefinitionId: '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/0a9a7e1f-b9d0-4cc4-a60d-0319b160aaa3'
-    principalId: userAssignedIdentity.properties.principalId
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roles.tableDataContributor)
+    principalId: userAssignedIdentityPrincipalId
     principalType: 'ServicePrincipal'
   }
 }
 
-output logicappAppName string = logicApp.name
-output logicappAppId string = logicApp.id
-output logicappPlanId string = workflowPlan.id
-output logicappPlanName string = workflowPlan.name
-output logicappStorageName string = storageAccount.name
-output logicappStorageId string = storageAccount.id
+resource diagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
+  scope: logicApp
+  name: 'logicapp-to-log-analytics'
+  properties: {
+    workspaceId: logAnalyticsWorkspaceId
+    logs: [
+      {
+        category: 'FunctionAppLogs'
+        enabled: true
+      }
+      {
+        category: 'WorkflowRuntime'
+        enabled: true
+      }
+    ]
+    metrics: [
+      {
+        category: 'AllMetrics'
+        enabled: true
+      }
+    ]
+  }
+}
+
+output logicAppName string = logicApp.name
+output logicAppId string = logicApp.id
+output logicAppHostName string = logicApp.properties.defaultHostName
+output logicAppUrl string = 'https://${logicApp.properties.defaultHostName}'
+output logicAppPlanName string = workflowPlan.name
+output logicAppStorageName string = storageAccount.name

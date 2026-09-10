@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+name: telemetry-demo
+metadata:
+  template: telemetry-demo@1.0.0
+
+# NOTE: no `services:` block is defined on purpose.
+#
+# azd's built-in service deployment does not cover every service this demo uses
+# (Logic App Standard workflows and APIM API definitions in particular), so all
+# application deployment is done by PowerShell scripts invoked from the hooks
+# below. azd is responsible for provisioning infrastructure and for holding the
+# environment values; the scripts own everything after that.
+
+infra:
+  provider: bicep
+  path: infra
+  module: main
+
+hooks:
+  # Runs after `azd provision`. Deploys application code and API definitions onto
+  # the empty hosts the Bicep template created.
+  postprovision:
+    shell: pwsh
+    continueOnError: false
+    interactive: true
+    run: ./scripts/deploy-all.ps1
+
+  # Runs before `azd down` so APIM and Container Apps release anything that would
+  # otherwise block resource group deletion.
+  predown:
+    shell: pwsh
+    continueOnError: true
+    interactive: false
+    run: ./scripts/predown.ps1

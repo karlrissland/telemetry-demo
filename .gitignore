@@ -1,0 +1,58 @@
+# azd
+.azure/
+
+# Local settings & secrets — never commit
+local.settings.json
+appsettings.Development.json
+.env
+.env.*
+!.env.sample
+*.publishsettings
+*.pubxml.user
+*.azurePubxml
+
+# Bicep build output
+*.bicep.json
+infra/**/*.json.bak
+
+# .NET
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+*.user
+*.suo
+*.userprefs
+project.lock.json
+artifacts/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Node (Logic App tooling)
+node_modules/
+
+# Logic App local artifacts
+src/logicapp/.debug/
+src/logicapp/workflow-designtime/
+src/logicapp/local.settings.json
+
+# APIM extractor output that may contain secrets
+apim/**/*.secret.*
+
+# Build/publish staging
+.publish/
+*.zip
+
+# Editors / OS
+.vs/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
