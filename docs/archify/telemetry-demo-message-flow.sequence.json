@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Telemetry Demo Message Flow",
+    "output": "telemetry-demo-message-flow.html",
+    "viewBox": [1320, 760],
+    "column_fit": "spread",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "request-and-auth",
+        "label": "Request and auth",
+        "focus": ["caller", "logicapp", "identity", "function", "easyauth"],
+        "note": "Follow the order request and managed identity authentication into the Function."
+      },
+      {
+        "id": "trace-propagation",
+        "label": "Trace propagation",
+        "focus": ["caller", "logicapp", "function", "appinsights"],
+        "note": "See client tracking and W3C trace headers move through the workflow."
+      },
+      {
+        "id": "telemetry-query",
+        "label": "Telemetry query",
+        "focus": ["logicapp", "function", "appinsights", "logs"],
+        "note": "Separate the business response from the shared telemetry query path."
+      }
+    ]
+  },
+  "participants": [
+    { "id": "caller", "type": "external", "label": "Caller" },
+    { "id": "logicapp", "type": "backend", "label": "Logic App Standard" },
+    { "id": "identity", "type": "security", "label": "Managed Identity" },
+    { "id": "function", "type": "backend", "label": "Azure Function" },
+    { "id": "easyauth", "type": "security", "label": "App Service Auth" },
+    { "id": "appinsights", "type": "cloud", "label": "Application Insights" },
+    { "id": "logs", "type": "database", "label": "Log Analytics" }
+  ],
+  "segments": [
+    { "from": 160, "to": 300, "label": "Request and authorization" },
+    { "from": 310, "to": 470, "label": "Trace and business response" },
+    { "from": 480, "to": 620, "label": "Telemetry and analysis" }
+  ],
+  "messages": [
+    { "id": "submit-order", "from": "caller", "to": "logicapp", "y": 170, "label": "POST order { orderNumber }", "variant": "emphasis", "note": "The caller may include traceparent and tracestate; the trigger sets clientTrackingId = orderNumber." },
+    { "id": "request-function-token", "from": "logicapp", "to": "identity", "y": 240, "label": "request Function audience token", "variant": "security" },
+    { "id": "send-function-request", "from": "logicapp", "to": "function", "y": 275, "label": "HTTP + bearer token", "variant": "emphasis", "note": "The workflow forwards traceparent and tracestate when supplied." },
+    { "id": "validate-identity", "from": "function", "to": "easyauth", "y": 325, "label": "validate app and principal", "variant": "security" },
+    { "id": "function-response", "from": "function", "to": "logicapp", "y": 350, "label": "200 response + orderNumber", "variant": "return" },
+    { "id": "logicapp-response", "from": "logicapp", "to": "caller", "y": 390, "label": "200 workflow response", "variant": "return" },
+    { "id": "workflow-telemetry", "from": "logicapp", "to": "appinsights", "y": 445, "label": "workflow telemetry", "variant": "dashed" },
+    { "id": "function-telemetry", "from": "function", "to": "appinsights", "y": 485, "label": "OpenTelemetry trace + logs", "variant": "dashed" },
+    { "id": "query-correlation", "from": "appinsights", "to": "logs", "y": 530, "label": "query OperationId / ParentId", "variant": "emphasis" },
+    { "id": "trace-finding", "from": "logs", "to": "caller", "y": 575, "label": "correlate order and trace lineage", "variant": "return", "note": "The portal Application Map may still fail to stitch both services." }
+  ],
+  "activations": [
+    { "participant": "logicapp", "from": 168, "to": 405, "type": "backend" },
+    { "participant": "identity", "from": 235, "to": 255, "type": "security" },
+    { "participant": "function", "from": 272, "to": 365, "type": "backend" },
+    { "participant": "easyauth", "from": 306, "to": 325, "type": "security" },
+    { "participant": "appinsights", "from": 440, "to": 515, "type": "cloud" },
+    { "participant": "logs", "from": 525, "to": 590, "type": "database" }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Business correlation",
+      "items": [
+        "orderNumber is copied into clientTrackingId on the Logic App trigger",
+        "The value is visible as x-ms-client-tracking-id",
+        "This is business correlation, separate from W3C trace identity"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Trace correlation",
+      "items": [
+        "Caller-supplied traceparent and tracestate can be forwarded by the workflow",
+        "The Function adopts the caller trace lineage when those headers are present",
+        "OperationId and ParentId can be verified in AppRequests"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Product gap",
+      "items": [
+        "The Logic App runtime does not clearly expose its active trace context to expressions",
+        "Application Map may not stitch the services even when the trace lineage is valid",
+        "This is the open question for the Azure product team"
+      ]
+    }
+  ]
+}

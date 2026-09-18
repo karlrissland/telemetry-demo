@@ -5,6 +5,10 @@
       "path": "./infra"
     },
     {
+      "name":"docs",
+      "path":"./docs"
+    },
+    {
       "name": "logicapp",
       "path": "./src/logicapps/td-lg"
     },

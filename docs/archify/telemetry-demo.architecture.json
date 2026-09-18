@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Telemetry Demo Architecture",
+    "quality_profile": "showcase",
+    "output": "telemetry-demo-architecture.html",
+    "views": [
+      {
+        "id": "request-path",
+        "label": "Request and trace path",
+        "focus": ["caller", "logicapp", "function", "appinsights"],
+        "note": "Follow the end-to-end request flow and trace correlation from the trigger to the function and telemetry sink."
+      },
+      {
+        "id": "auth-and-identity",
+        "label": "Auth and identity",
+        "focus": ["logicapp", "managedidentity", "function", "easyauth"],
+        "note": "Model the managed-identity access path and App Service auth enforcement."
+      }
+    ]
+  },
+  "components": [
+    { "id": "caller", "type": "external", "label": "Caller", "pos": [30, 260], "size": [110, 62] },
+    { "id": "logicapp", "type": "backend", "label": "Logic App Standard", "pos": [230, 260], "size": [170, 72] },
+    { "id": "managedidentity", "type": "security", "label": "Managed Identity", "pos": [480, 120], "size": [150, 62], "tag": "Function audience" },
+    { "id": "function", "type": "backend", "label": "Azure Function", "pos": [760, 260], "size": [160, 72] },
+    { "id": "easyauth", "type": "security", "label": "App Service Auth", "pos": [760, 120], "size": [160, 60], "tag": "allowedApplications / identities" },
+    { "id": "appinsights", "type": "cloud", "label": "Application Insights", "pos": [1030, 260], "size": [180, 72] },
+    { "id": "loganalytics", "type": "database", "label": "Log Analytics", "pos": [1290, 260], "size": [170, 62] }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "Azure subscription / resource group", "wraps": ["logicapp", "managedidentity", "function", "easyauth", "appinsights", "loganalytics"] }
+  ],
+  "connections": [
+    { "id": "caller-to-logicapp", "from": "caller", "to": "logicapp", "label": "HTTP request", "variant": "emphasis" },
+    { "id": "logicapp-to-managedidentity", "from": "logicapp", "to": "managedidentity", "label": "uses identity", "variant": "security", "fromSide": "right", "toSide": "bottom", "labelAt": [410, 170] },
+    { "id": "managedidentity-to-function", "from": "managedidentity", "to": "function", "label": "token / audience", "variant": "emphasis", "fromSide": "right", "toSide": "left", "labelAt": [630, 190] },
+    { "id": "function-to-easyauth", "from": "function", "to": "easyauth", "label": "auth validation", "variant": "security", "fromSide": "top", "toSide": "bottom", "labelAt": [835, 210] },
+    { "id": "logicapp-to-appinsights", "from": "logicapp", "to": "appinsights", "label": "workflow telemetry", "variant": "emphasis", "fromSide": "bottom", "toSide": "bottom", "via": [[315, 400], [1120, 400]], "labelAt": [660, 430] },
+    { "id": "function-to-appinsights", "from": "function", "to": "appinsights", "label": "OpenTelemetry / traces", "variant": "emphasis", "fromSide": "right", "toSide": "left", "labelAt": [920, 360] },
+    { "id": "appinsights-to-loganalytics", "from": "appinsights", "to": "loganalytics", "label": "queries / correlation", "variant": "emphasis", "fromSide": "right", "toSide": "left", "labelAt": [1215, 210] }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "Current state", "items": ["Logic App Standard receives inbound HTTP requests and emits workflow telemetry.", "The Function is protected by App Service Authentication and accepts only the Logic App managed identity.", "The request and function payload both include the order number for client tracking."] },
+    { "dot": "emerald", "title": "Observed behavior", "items": ["Custom tracking ID is visible as x-ms-client-tracking-id and can be used for business correlation.", "A caller-supplied W3C traceparent is propagated to the Function when the workflow forwards it.", "The portal-level Application Map still does not reliably stitch both services into one graph even when trace lineage is preserved."] },
+    { "dot": "rose", "title": "Open product question", "items": ["Is there a supported Logic Apps Standard runtime feature that exposes the active workflow trace context so the portal can treat Logic App and Function as one distributed trace?", "If not, is this a known gap in Application Map / dependency stitching for Standard workflows?"] }
+  ]
+}
