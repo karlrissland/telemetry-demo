@@ -1,0 +1,29 @@
+{
+  "folders": [
+    {
+      "name": "infra",
+      "path": "./infra"
+    },
+    {
+      "name": "logicapp",
+      "path": "./src/logicapps/td-lg"
+    },
+    {
+      "name": "function",
+      "path": "./src/function"
+    },
+    {
+      "name": "schemas",
+      "path": "./src/schemas"
+    },
+    {
+      "name": "tests",
+      "path": "./tests"
+    },
+  ],
+  "settings": {
+    "chat.tools.terminal.autoApprove": {
+      "az": true
+    }
+  }
+}

@@ -18,6 +18,12 @@ param location string = resourceGroup().location
 
 param userAssignedIdentityName string
 
+@description('Base URL of the function app that this Logic App calls (e.g. https://func-xyz.azurewebsites.net).')
+param functionAppUrl string
+
+@description('Audience (Entra ID app/client ID) to use when calling the function app with a managed identity.')
+param functionAppAudience string
+
 var logicAppName = appName
 var hostingPlanName = appName
 var storageAccountName = '${uniqueString(resourceGroup().id)}logicapp'
@@ -145,6 +151,22 @@ resource logicApp 'Microsoft.Web/sites@2022-03-01' = {
           name: 'WORKFLOWS_MANAGEMENT_BASE_URI'
           value: managementbaseuri
         }
+        {
+          name: 'FunctionAppUrl'
+          value: functionAppUrl
+        }
+        {
+          name: 'FunctionAppAudience'
+          value: functionAppAudience
+        }
+        {
+          name: 'ManagedIdentityResourceId'
+          value: userAssignedIdentity.id
+        }
+        {
+          name: 'ManagedIdentityClientId'
+          value: userAssignedIdentity.properties.clientId
+        }
       ]
     }
     clientAffinityEnabled: false
@@ -236,3 +258,5 @@ output logicappPlanId string = workflowPlan.id
 output logicappPlanName string = workflowPlan.name
 output logicappStorageName string = storageAccount.name
 output logicappStorageId string = storageAccount.id
+output logicAppPrincipalId string = logicApp.identity.principalId
+output userAssignedIdentityPrincipalId string = userAssignedIdentity.properties.principalId

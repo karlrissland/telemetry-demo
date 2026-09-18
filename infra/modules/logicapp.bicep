@@ -17,7 +17,15 @@ param storageAccountType string = 'Standard_LRS'
 param location string = resourceGroup().location
 
 param applicationInsightsName string
-param userAssignedIdentityName string
+param userAssignedIdentityId string
+param userAssignedIdentityPrincipalId string
+param userAssignedIdentityClientId string
+
+@description('Base URL of the function app that this Logic App calls (e.g. https://func-xyz.azurewebsites.net).')
+param functionAppUrl string
+
+@description('Audience (Entra ID app/client ID) to use when calling the function app with a managed identity.')
+param functionAppAudience string
 
 var logicAppName = appName
 var hostingPlanName = appName
@@ -43,7 +51,7 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2025-01-01' = {
   sku: {
     name: storageAccountType
   }
-  kind: 'StorageV2'
+  kind: 'Storage'
   properties: {
     supportsHttpsTrafficOnly: true
     minimumTlsVersion: 'TLS1_2'
@@ -53,11 +61,6 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2025-01-01' = {
     publicNetworkAccess: 'Enabled'
   }
   dependsOn: []
-}
-
-resource userAssignedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2018-11-30' = {
-  name: userAssignedIdentityName
-  location: location
 }
 
 resource workflowPlan 'Microsoft.Web/serverfarms@2024-11-01' = {
@@ -100,7 +103,7 @@ resource logicApp 'Microsoft.Web/sites@2022-03-01' = {
         }
         {
           name: 'FUNCTIONS_WORKER_RUNTIME'
-          value: 'node'
+          value: 'dotnet'
         }
         {
           name: 'WEBSITE_NODE_DEFAULT_VERSION'
@@ -124,7 +127,7 @@ resource logicApp 'Microsoft.Web/sites@2022-03-01' = {
         }
         {
           name: 'AzureWebJobsStorage__managedIdentityResourceId'
-          value: userAssignedIdentity.id
+          value: userAssignedIdentityId
         }
         {
           name: 'AzureFunctionsJobHost__extensionBundle__id'
@@ -154,10 +157,25 @@ resource logicApp 'Microsoft.Web/sites@2022-03-01' = {
           name: 'WORKFLOWS_MANAGEMENT_BASE_URI'
           value: managementbaseuri
         }
+        {
+          name: 'FunctionAppUrl'
+          value: functionAppUrl
+        }
+        {
+          name: 'FunctionAppAudience'
+          value: functionAppAudience
+        }
+        {
+          name: 'ManagedIdentityResourceId'
+          value: userAssignedIdentityId
+        }
+        {
+          name: 'ManagedIdentityClientId'
+          value: userAssignedIdentityClientId
+        }
       ]
     }
     clientAffinityEnabled: false
-    virtualNetworkSubnetId: null
     publicNetworkAccess: 'Enabled'
     httpsOnly: true
     serverFarmId: resourceId('Microsoft.Web/serverfarms', hostingPlanName)
@@ -165,7 +183,7 @@ resource logicApp 'Microsoft.Web/sites@2022-03-01' = {
   identity: {
     type: 'SystemAssigned, UserAssigned'
     userAssignedIdentities: {
-      '${userAssignedIdentity.id}': {}
+      '${userAssignedIdentityId}': {}
     }
   }
   dependsOn: [
@@ -204,7 +222,7 @@ resource roleDefinition_Storage_File_Data_SMB_Share_Elevated_Contributor 'Micros
   name: guid(subscription().id, resourceGroup().id, logicAppName, '/providers/Microsoft.Authorization/roleDefinitions/17d1049b-9a84-46fb-8f53-869881c3d3ab')
   properties: {
     roleDefinitionId: '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/17d1049b-9a84-46fb-8f53-869881c3d3ab'
-    principalId: userAssignedIdentity.properties.principalId
+    principalId: userAssignedIdentityPrincipalId
     principalType: 'ServicePrincipal'
   }
 }
@@ -214,7 +232,7 @@ resource roleDefinition_Storage_Blob_Data_Owner 'Microsoft.Authorization/roleAss
   name: guid(subscription().id, resourceGroup().id, logicAppName, '/providers/Microsoft.Authorization/roleDefinitions/b7e6dc6d-f1e8-4753-8033-0f276bb0955b')
   properties: {
     roleDefinitionId: '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/b7e6dc6d-f1e8-4753-8033-0f276bb0955b'
-    principalId: userAssignedIdentity.properties.principalId
+    principalId: userAssignedIdentityPrincipalId
     principalType: 'ServicePrincipal'
   }
 }
@@ -224,7 +242,7 @@ resource roleDefinition_Storage_Queue_Data_Contributor 'Microsoft.Authorization/
   name: guid(subscription().id, resourceGroup().id, logicAppName, '/providers/Microsoft.Authorization/roleDefinitions/974c5e8b-45b9-4653-ba55-5f855dd0fb88')
   properties: {
     roleDefinitionId: '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/974c5e8b-45b9-4653-ba55-5f855dd0fb88'
-    principalId: userAssignedIdentity.properties.principalId
+    principalId: userAssignedIdentityPrincipalId
     principalType: 'ServicePrincipal'
   }
 }
@@ -234,7 +252,7 @@ resource roleDefinition_Storage_Table_Data_Contributor 'Microsoft.Authorization/
   name: guid(subscription().id, resourceGroup().id, logicAppName, '/providers/Microsoft.Authorization/roleDefinitions/0a9a7e1f-b9d0-4cc4-a60d-0319b160aaa3')
   properties: {
     roleDefinitionId: '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/0a9a7e1f-b9d0-4cc4-a60d-0319b160aaa3'
-    principalId: userAssignedIdentity.properties.principalId
+    principalId: userAssignedIdentityPrincipalId
     principalType: 'ServicePrincipal'
   }
 }
@@ -245,3 +263,4 @@ output logicappPlanId string = workflowPlan.id
 output logicappPlanName string = workflowPlan.name
 output logicappStorageName string = storageAccount.name
 output logicappStorageId string = storageAccount.id
+output logicAppPrincipalId string = logicApp.identity.principalId

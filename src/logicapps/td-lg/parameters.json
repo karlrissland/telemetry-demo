@@ -1,0 +1,14 @@
+{
+  "functionappurl": {
+    "type": "String",
+    "value": "@appsetting('FunctionAppUrl')"
+  },
+  "functionappaudience": {
+    "type": "String",
+    "value": "@appsetting('FunctionAppAudience')"
+  },
+  "managedidentityresourceid": {
+    "type": "String",
+    "value": "@appsetting('ManagedIdentityResourceId')"
+  }
+}

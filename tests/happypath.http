@@ -1,0 +1,16 @@
+POST http://localhost:7071/api/reqres/triggers/When_an_HTTP_request_is_received/invoke?api-version=2022-05-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=RzHmQlTCfmXVDZWV8Pgckg6Np4SLUJ6ut2JAv38jpcM
+
+{
+    "name":"Herman",
+    "orderNumber":"12345"
+}
+
+###
+
+POST http://localhost:7071/api/HttpTrigger1
+Content-Type: application/json
+
+{
+    "name":"Herman",
+    "orderNumber":"12345"
+}   

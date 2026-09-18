@@ -1,10 +1,79 @@
 {
-  "definition": {
-    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
-    "contentVersion": "1.0.0.0",
-    "actions": {},
-    "outputs": {},
-    "triggers": {}
-  },
-  "kind": "Stateful"
+    "definition": {
+        "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+        "contentVersion": "1.0.0.0",
+        "actions": {
+            "Response": {
+                "type": "Response",
+                "kind": "Http",
+                "inputs": {
+                    "statusCode": 200,
+                    "body": "@outputs('Compose')"
+                },
+                "runAfter": {
+                    "Compose": [
+                        "SUCCEEDED"
+                    ]
+                },
+                "trackedProperties": {
+                    "orderNumber": "body('Parse_JSON')?['orderNumber']"
+                }
+            },
+            "Compose": {
+                "type": "Compose",
+                "inputs": {
+                    "name": "echo-@{triggerBody()?['name']}",
+                    "orderNumber": "echo-@{triggerBody()?['orderNumber']}"
+                },
+                "runAfter": {
+                    "HTTP": [
+                        "SUCCEEDED"
+                    ]
+                },
+                "trackedProperties": {
+                    "orderNumber": "body('Parse_JSON')?['orderNumber']"
+                }
+            },
+            "HTTP": {
+                "type": "Http",
+                "inputs": {
+                    "uri": "@parameters('functionappurl')",
+                    "method": "POST",
+                    "authentication": {
+                        "type": "ManagedServiceIdentity",
+                        "identity": "@parameters('managedidentityresourceid')",
+                        "audience": "@parameters('functionappaudience')"
+                    },
+                    "body": "@triggerBody()"
+                },
+                "runAfter": {},
+                "runtimeConfiguration": {
+                    "contentTransfer": {
+                        "transferMode": "Chunked"
+                    }
+                }
+            }
+        },
+        "outputs": {},
+        "triggers": {
+            "When_an_HTTP_request_is_received": {
+                "type": "Request",
+                "kind": "Http",
+                "inputs": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "name": {
+                                "type": "string"
+                            },
+                            "orderNumber": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "kind": "Stateful"
 }
