@@ -154,6 +154,10 @@ resource logicApp 'Microsoft.Web/sites@2022-03-01' = {
           value: applicationInsights.properties.InstrumentationKey
         }
         {
+          name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
+          value: applicationInsights.properties.ConnectionString
+        }
+        {
           name: 'WORKFLOWS_MANAGEMENT_BASE_URI'
           value: managementbaseuri
         }

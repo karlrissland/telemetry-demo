@@ -44,6 +44,10 @@
                         "identity": "@parameters('managedidentityresourceid')",
                         "audience": "@parameters('functionappaudience')"
                     },
+                    "headers": {
+                        "traceparent": "@triggerOutputs()?['headers']?['traceparent']",
+                        "tracestate": "@triggerOutputs()?['headers']?['tracestate']"
+                    },
                     "body": "@triggerBody()"
                 },
                 "runAfter": {},
@@ -71,6 +75,9 @@
                             }
                         }
                     }
+                },
+                "correlation": {
+                    "clientTrackingId": "@triggerBody()?['orderNumber']"
                 }
             }
         }

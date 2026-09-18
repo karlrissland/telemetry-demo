@@ -6,7 +6,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.44.1.10279",
-      "templateHash": "3423024101776648567"
+      "templateHash": "1437537434157051991"
     }
   },
   "parameters": {
@@ -568,7 +568,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.44.1.10279",
-              "templateHash": "9362514977569120409"
+              "templateHash": "11890599445236966705"
             }
           },
           "parameters": {
@@ -743,6 +743,10 @@
                     {
                       "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
                       "value": "[reference(resourceId('Microsoft.Insights/components', parameters('applicationInsightsName')), '2020-02-02').InstrumentationKey]"
+                    },
+                    {
+                      "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
+                      "value": "[reference(resourceId('Microsoft.Insights/components', parameters('applicationInsightsName')), '2020-02-02').ConnectionString]"
                     },
                     {
                       "name": "WORKFLOWS_MANAGEMENT_BASE_URI",
