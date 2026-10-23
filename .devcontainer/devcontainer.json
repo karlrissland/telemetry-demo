@@ -1,0 +1,43 @@
+{
+  "name": "Logic Apps Standard Designer",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-22-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/dotnet:2": {
+      "version": "8.0"
+    }
+  },
+  "remoteUser": "node",
+  "postCreateCommand": "npm install --global azure-functions-core-tools@4 azurite@3.35.0 && node .devcontainer/setup.cjs",
+  "postStartCommand": "node .devcontainer/setup.cjs start",
+  "forwardPorts": [7071, 8000],
+  "portsAttributes": {
+    "7071": {
+      "label": "Logic Apps runtime",
+      "onAutoForward": "notify"
+    },
+    "8000": {
+      "label": "Logic Apps design-time API",
+      "onAutoForward": "silent"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-azuretools.vscode-azurelogicapps",
+        "ms-azuretools.vscode-azurefunctions",
+        "ms-azuretools.vscode-azureresourcegroups",
+        "humao.rest-client"
+      ],
+      "settings": {
+        "azureLogicAppsStandard.autoRuntimeDependenciesValidationAndInstallation": false,
+        "azureLogicAppsStandard.autoRuntimeDependenciesPath": "/usr/local/share/logicapps",
+        "azureLogicAppsStandard.funcCoreToolsBinaryPath": "func",
+        "azureLogicAppsStandard.dotnetBinaryPath": "dotnet",
+        "azureLogicAppsStandard.nodeJsBinaryPath": "node",
+        "remote.extensionKind": {
+          "ms-azuretools.vscode-azurelogicapps": ["workspace"]
+        }
+      }
+    }
+  }
+}

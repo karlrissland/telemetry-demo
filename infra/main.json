@@ -642,7 +642,7 @@
               "sku": {
                 "name": "[parameters('storageAccountType')]"
               },
-              "kind": "Storage",
+              "kind": "StorageV2",
               "properties": {
                 "supportsHttpsTrafficOnly": true,
                 "minimumTlsVersion": "TLS1_2",

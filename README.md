@@ -1,5 +1,37 @@
 # Telemetry Demo Notes
 
+## Logic Apps designer in GitHub Codespaces
+
+The root `.devcontainer/devcontainer.json` installs the Logic Apps Standard
+extension, Node.js 22, .NET 8, Functions Core Tools v4, and Azurite. It also works
+with **Dev Containers: Reopen in Container** in desktop VS Code.
+
+1. Create a Codespace for this branch, or rebuild an existing Codespace's container.
+2. Open `telemetry-demo.code-workspace` and select **Open Workspace** so the
+	nested Logic App is recognized as its own workspace folder.
+3. Wait for the extensions to finish installing. In the `logicapp` folder,
+	right-click `reqres/workflow.json` and select **Open Designer**. The first
+	start downloads the workflow extension bundle and can take several minutes.
+4. To run the workflow host, use **Tasks: Run Task**, select `logicapp`, and run
+	**func: host start**. Use port 7071 in the Ports panel for HTTP requests.
+
+Azurite starts automatically on container start, using local ports 10000-10002
+and storing its data outside the repository in `~/.azurite`. Runtime and
+design-time ports are forwarded privately; do not make the design-time API public.
+The setup creates ignored `local.settings.json` files for the Logic App and its
+design-time host only when missing; it never overwrites existing settings.
+No Azure credentials or telemetry connection strings are seeded.
+
+Built-in workflow design does not require Azure sign-in. For managed connectors,
+sign in through the Azure extension and use **Use Connectors from Azure**.
+The existing workflow's managed-identity call to the Function requires Azure-hosted
+identity and is not runnable unchanged in a Codespace. The local Function URL in
+the generated settings is a placeholder, not a replacement for that authentication.
+This container targets Logic Apps authoring, not the separate .NET 10 Function
+project. If the designer fails to start, check **Output > Azure Logic Apps
+(Standard)** and `~/.azurite/azurite.log`. If browser port forwarding prevents the
+designer from connecting, try **Codespaces: Open in VS Code** with the same container.
+
 ## Summary
 
 This demo shows an Azure Logic App Standard workflow calling an Azure Function over managed identity, with a shared Application Insights workspace for cross-service telemetry correlation.

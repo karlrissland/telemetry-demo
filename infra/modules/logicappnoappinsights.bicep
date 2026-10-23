@@ -44,7 +44,7 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2025-01-01' = {
   sku: {
     name: storageAccountType
   }
-  kind: 'Storage'
+  kind: 'StorageV2'
   properties: {
     supportsHttpsTrafficOnly: true
     minimumTlsVersion: 'TLS1_2'
